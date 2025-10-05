@@ -1,0 +1,49 @@
+name: users-ci
+
+on:
+  push:
+    paths:
+      - 'CloudGames.Users/**'
+  pull_request:
+    paths:
+      - 'CloudGames.Users/**'
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore CloudGames.Users/CloudGames.Users.sln
+      - name: Build
+        run: dotnet build CloudGames.Users/CloudGames.Users.sln -c Release --no-restore
+      - name: Test
+        run: echo "no tests yet"
+      - name: Publish Web
+        run: dotnet publish CloudGames.Users/CloudGames.Users.Web/CloudGames.Users.Web.csproj -c Release -o ${{ github.workspace }}/publish
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudgames-users-web
+          path: ${{ github.workspace }}/publish
+
+  deploy-azure-webapp:
+    if: github.ref == 'refs/heads/main'
+    needs: build-test-publish
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: cloudgames-users-web
+          path: publish
+      - name: Azure WebApp deploy
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISHPROFILE }}
+          package: publish
+
