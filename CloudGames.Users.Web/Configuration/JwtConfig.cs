@@ -9,8 +9,11 @@ public static class JwtConfig
 {
     public static IServiceCollection AddJwtAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        var authority = configuration["Jwt:Authority"] ?? string.Empty;
-        var audience = configuration["Jwt:Audience"] ?? string.Empty;
+        var secret = configuration["JwtSettings:Secret"] ?? string.Empty;
+        var issuer = configuration["JwtSettings:Issuer"] ?? "CloudGames";
+        var audience = configuration["JwtSettings:Audience"] ?? "CloudGamesUsers";
+
+        var key = string.IsNullOrWhiteSpace(secret) ? null : new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secret));
 
         services.AddAuthentication(options =>
         {
@@ -21,22 +24,17 @@ public static class JwtConfig
         {
             options.RequireHttpsMetadata = false;
             options.SaveToken = true;
-            options.Authority = authority;
             options.TokenValidationParameters = new TokenValidationParameters
             {
+                ValidateIssuerSigningKey = key != null,
+                IssuerSigningKey = key,
                 ValidateIssuer = true,
-                ValidAudience = audience,
+                ValidIssuer = issuer,
                 ValidateAudience = true,
+                ValidAudience = audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.Zero
             };
-
-            // Explicitly use JWKS
-            options.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
-                $"{authority.TrimEnd('/')}/.well-known/openid-configuration",
-                new OpenIdConnectConfigurationRetriever(),
-                new HttpDocumentRetriever { RequireHttps = authority.StartsWith("https://", StringComparison.OrdinalIgnoreCase) }
-            );
         });
 
         return services;

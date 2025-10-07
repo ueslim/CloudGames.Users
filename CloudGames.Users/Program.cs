@@ -9,6 +9,7 @@ using System.Text;
 using Azure.Storage.Queues;
 using System.Text.Json;
 using Microsoft.OpenApi.Models;
+using System.IdentityModel.Tokens.Jwt;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,7 @@ builder.Services.AddCors(options =>
 
 // EF Core DbContext
 builder.Services.AddDbContext<UsersDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("UsersDb")));
+    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
 // Queue publisher for user events
 builder.Services.AddSingleton(sp =>
@@ -202,10 +203,13 @@ public class TokenService : ITokenService
         {
             Subject = new System.Security.Claims.ClaimsIdentity(new[]
             {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Name),
+                new Claim(JwtRegisteredClaimNames.Name, user.Name),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString())
+                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim("role", user.Role.ToString())
             }),
             Expires = DateTime.UtcNow.AddHours(8),
             Issuer = _configuration["Jwt:Issuer"],

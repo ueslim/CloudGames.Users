@@ -34,9 +34,12 @@ public static class SwaggerConfig
 
     public static IApplicationBuilder UseSwaggerDocs(this IApplicationBuilder app, IWebHostEnvironment env)
     {
+        // Always expose Swagger JSON for APIM import in all environments
+        app.UseSwagger();
+
+        // Keep Swagger UI limited to Development
         if (env.IsDevelopment())
         {
-            app.UseSwagger();
             app.UseSwaggerUI();
         }
         return app;

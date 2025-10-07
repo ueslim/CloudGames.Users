@@ -9,7 +9,12 @@ using CloudGames.Users.Infra.Outbox;
 using CloudGames.Users.Infra.Persistence;
 using CloudGames.Users.Infra.Repositories;
 using CloudGames.Users.Web.Configuration;
+using System.IdentityModel.Tokens.Jwt;
+using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args).AddObservability();
 var configuration = builder.Configuration;
@@ -37,6 +42,19 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 
 var app = builder.Build();
 
+// Apply EF Core migrations for all contexts before hosted services start
+using (var scope = app.Services.CreateScope())
+{
+    var usersDb = scope.ServiceProvider.GetRequiredService<UsersDbContext>();
+    usersDb.Database.Migrate();
+
+    var eventDb = scope.ServiceProvider.GetRequiredService<EventStoreSqlContext>();
+    eventDb.Database.Migrate();
+
+    var outboxDb = scope.ServiceProvider.GetRequiredService<OutboxContext>();
+    outboxDb.Database.Migrate();
+}
+
 app.UseSwaggerDocs(app.Environment);
 app.UseCorrelation();
 app.UseApi();
@@ -56,8 +74,36 @@ public class TokenService : ITokenService
     public TokenService(IConfiguration configuration) { _configuration = configuration; }
     public string GenerateToken(CloudGames.Users.Domain.Entities.User user)
     {
-        // In JWKS mode this service is used only if acting as issuer elsewhere; placeholder
-        return string.Empty;
+        var secret = _configuration["JwtSettings:Secret"] ?? string.Empty;
+        var issuer = _configuration["JwtSettings:Issuer"] ?? "CloudGames";
+        var audience = _configuration["JwtSettings:Audience"] ?? "CloudGamesUsers";
+
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            return string.Empty;
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Name),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role.ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(8),
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
 
