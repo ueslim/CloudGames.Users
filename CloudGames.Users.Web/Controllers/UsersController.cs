@@ -6,6 +6,9 @@ using System.Security.Claims;
 
 namespace CloudGames.Users.Web.Controllers;
 
+/// <summary>
+/// Users controller for retrieving user information
+/// </summary>
 [ApiController]
 [Route("api/users")]
 public class UsersController : ControllerBase
@@ -13,6 +16,15 @@ public class UsersController : ControllerBase
     private readonly UserQueryHandler _queries;
     public UsersController(UserQueryHandler queries) { _queries = queries; }
 
+    /// <summary>
+    /// Get user information by ID
+    /// </summary>
+    /// <param name="id">User ID</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>User information</returns>
+    /// <response code="200">User found</response>
+    /// <response code="401">Unauthorized - JWT token required</response>
+    /// <response code="404">User not found</response>
     [Authorize]
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById([FromRoute] Guid id, CancellationToken ct)
@@ -21,7 +33,13 @@ public class UsersController : ControllerBase
         return Ok(user);
     }
 
-    // Added: GET /api/users/me endpoint for authenticated user data from JWT token
+    /// <summary>
+    /// Get current authenticated user information from JWT token
+    /// </summary>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Current user information</returns>
+    /// <response code="200">User information retrieved</response>
+    /// <response code="401">Unauthorized - JWT token required or invalid</response>
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> GetMe(CancellationToken ct)

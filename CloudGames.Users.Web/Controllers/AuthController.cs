@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CloudGames.Users.Web.Controllers;
 
+/// <summary>
+/// Authentication controller for user registration, login, and profile updates
+/// </summary>
 [ApiController]
 [Route("api/users")]
 public class AuthController : ControllerBase
@@ -13,6 +16,15 @@ public class AuthController : ControllerBase
     private readonly UserCommandHandler _commands;
     public AuthController(UserCommandHandler commands) { _commands = commands; }
 
+    /// <summary>
+    /// Register a new user account
+    /// </summary>
+    /// <param name="dto">User registration data</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Created user information</returns>
+    /// <response code="201">User successfully created</response>
+    /// <response code="400">Invalid input data</response>
+    /// <response code="409">Email already exists</response>
     [AllowAnonymous]
     [HttpPost]
     public async Task<IActionResult> Register([FromBody] CreateUserDto dto, CancellationToken ct)
@@ -27,6 +39,14 @@ public class AuthController : ControllerBase
         );
     }
 
+    /// <summary>
+    /// Authenticate user and return JWT token
+    /// </summary>
+    /// <param name="dto">Login credentials</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>JWT token and user information</returns>
+    /// <response code="200">Authentication successful</response>
+    /// <response code="401">Invalid credentials</response>
     [AllowAnonymous]
     [HttpPost("authenticate")]
     public async Task<IActionResult> Authenticate([FromBody] LoginDto dto, CancellationToken ct)
@@ -35,6 +55,17 @@ public class AuthController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Update user profile information
+    /// </summary>
+    /// <param name="id">User ID</param>
+    /// <param name="dto">Updated user data</param>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>Updated user information</returns>
+    /// <response code="200">User successfully updated</response>
+    /// <response code="400">Invalid input data</response>
+    /// <response code="401">Unauthorized - JWT token required</response>
+    /// <response code="404">User not found</response>
     [Authorize]
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update([FromRoute] Guid id, [FromBody] UpdateUserDto dto, CancellationToken ct)
