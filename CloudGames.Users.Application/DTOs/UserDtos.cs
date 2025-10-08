@@ -1,0 +1,8 @@
+namespace CloudGames.Users.Application.DTOs;
+
+public record CreateUserDto(string Name, string Email, string Password);
+public record UpdateUserDto(string Name, string Email);
+public record LoginDto(string Email, string Password);
+public record UserDto(Guid Id, string Name, string Email, string Role);
+public record LoginResponseDto(string Token, UserDto User);
+
