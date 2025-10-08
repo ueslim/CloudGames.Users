@@ -47,9 +47,13 @@ jobs:
           name: cloudgames-users-web
           path: publish
 
-      - name: Azure WebApp deploy
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure WebApp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISHPROFILE }}
+          app-name: cloudgames-users
           package: publish
