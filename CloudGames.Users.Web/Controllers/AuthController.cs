@@ -18,7 +18,13 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] CreateUserDto dto, CancellationToken ct)
     {
         var user = await _commands.Handle(new RegisterUserCommand(dto), ct);
-        return CreatedAtAction(nameof(Register), user);
+        // Fixed: Reference GetById method for proper CreatedAtAction with Location header
+        return CreatedAtAction(
+            actionName: "GetById",
+            controllerName: "Users",
+            routeValues: new { id = user.Id },
+            value: user
+        );
     }
 
     [AllowAnonymous]

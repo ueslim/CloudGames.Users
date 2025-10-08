@@ -9,11 +9,11 @@ public static class JwtConfig
 {
     public static IServiceCollection AddJwtAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        var secret = configuration["JwtSettings:Secret"] ?? string.Empty;
-        var issuer = configuration["JwtSettings:Issuer"] ?? "CloudGames";
-        var audience = configuration["JwtSettings:Audience"] ?? "CloudGamesUsers";
-
-        var key = string.IsNullOrWhiteSpace(secret) ? null : new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secret));
+        var authority = configuration["Jwt:Authority"];
+        var audience = configuration["Jwt:Audience"];
+        var secret = configuration["JwtSettings:Secret"];
+        var issuer = configuration["JwtSettings:Issuer"];
+        var manualAudience = configuration["JwtSettings:Audience"];
 
         services.AddAuthentication(options =>
         {
@@ -22,19 +22,51 @@ public static class JwtConfig
         })
         .AddJwtBearer(options =>
         {
-            options.RequireHttpsMetadata = false;
+            options.RequireHttpsMetadata = true; // Changed: Require HTTPS for production security
             options.SaveToken = true;
-            options.TokenValidationParameters = new TokenValidationParameters
+
+            if (!string.IsNullOrWhiteSpace(authority))
             {
-                ValidateIssuerSigningKey = key != null,
-                IssuerSigningKey = key,
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateAudience = true,
-                ValidAudience = audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.Zero
-            };
+                // Azure AD or other OIDC provider mode
+                options.Authority = authority;
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidAudience = audience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero,
+                    // Let OIDC metadata handle issuer validation
+                    ValidateIssuerSigningKey = true
+                };
+            }
+            else if (!string.IsNullOrWhiteSpace(secret) && !string.IsNullOrWhiteSpace(issuer))
+            {
+                // Manual JWT with symmetric key mode
+                var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secret));
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = key,
+                    ValidateIssuer = true,
+                    ValidIssuer = issuer,
+                    ValidateAudience = true,
+                    ValidAudience = manualAudience,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.Zero
+                };
+            }
+            else
+            {
+                // Fallback: disable validation for development (INSECURE - only for local dev)
+                options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuerSigningKey = false,
+                    ValidateIssuer = false,
+                    ValidateAudience = false,
+                    ValidateLifetime = false
+                };
+            }
         });
 
         return services;

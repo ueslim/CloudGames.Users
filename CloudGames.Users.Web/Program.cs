@@ -21,6 +21,7 @@ var configuration = builder.Configuration;
 
 builder.Services.AddApi().AddSwaggerDocs();
 builder.Services.AddJwtAuth(configuration);
+builder.Services.AddCorsPolicy(builder.Environment); // Added: CORS for local/dev only
 
 // DbContexts
 builder.Services.AddDbContext<UsersDbContext>(o => o.UseSqlServer(configuration.GetConnectionString("UsersDb")));
@@ -56,7 +57,10 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseSwaggerDocs(app.Environment);
+app.UseGlobalExceptionHandling(); // Added: Global exception handling middleware
 app.UseCorrelation();
+app.UseCorsPolicy(app.Environment); // Added: CORS policy for local/dev only
+app.UseHttpsSupport(app.Environment); // Added: HTTPS support (optional)
 app.UseApi();
 
 app.Run();
