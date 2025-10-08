@@ -17,13 +17,13 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - name: Restore
-        run: dotnet restore CloudGames.Users.sln
+        run: dotnet restore CloudGames.Users/CloudGames.Users.sln
       - name: Build
-        run: dotnet build CloudGames.Users.sln -c Release --no-restore
+        run: dotnet build CloudGames.Users/CloudGames.Users.sln -c Release --no-restore
       - name: Test
         run: echo "no tests yet"
       - name: Publish Web
-        run: dotnet publish CloudGames.Users.Web/CloudGames.Users.Web.csproj -c Release -o ${{ github.workspace }}/publish
+        run: dotnet publish CloudGames.Users/CloudGames.Users.Web/CloudGames.Users.Web.csproj -c Release -o ${{ github.workspace }}/publish
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
