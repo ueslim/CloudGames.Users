@@ -22,12 +22,12 @@ public static class JwtConfig
         })
         .AddJwtBearer(options =>
         {
-            options.RequireHttpsMetadata = true; // Changed: Require HTTPS for production security
             options.SaveToken = true;
 
             if (!string.IsNullOrWhiteSpace(authority))
             {
-                // Azure AD or other OIDC provider mode
+                // Azure AD or other OIDC provider mode (Production)
+                options.RequireHttpsMetadata = true;
                 options.Authority = authority;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -42,7 +42,8 @@ public static class JwtConfig
             }
             else if (!string.IsNullOrWhiteSpace(secret) && !string.IsNullOrWhiteSpace(issuer))
             {
-                // Manual JWT with symmetric key mode
+                // Manual JWT with symmetric key mode (Development)
+                options.RequireHttpsMetadata = false; // Allow HTTP for local development
                 var key = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secret));
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -59,6 +60,7 @@ public static class JwtConfig
             else
             {
                 // Fallback: disable validation for development (INSECURE - only for local dev)
+                options.RequireHttpsMetadata = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuerSigningKey = false,
