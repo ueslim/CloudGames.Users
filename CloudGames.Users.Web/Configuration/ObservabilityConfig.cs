@@ -18,16 +18,36 @@ public static class ObservabilityConfig
             .CreateLogger();
         builder.Host.UseSerilog();
 
-        builder.Services.AddOpenTelemetry()
+        var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
+        var enableOtlp = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
+        var telemetryBuilder = builder.Services.AddOpenTelemetry()
             .ConfigureResource(r => r.AddService(serviceName, serviceVersion: "1.0.0"))
-            .WithTracing(t => t
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddOtlpExporter())
-            .WithMetrics(m => m
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddOtlpExporter());
+            .WithTracing(t =>
+            {
+                t.AddAspNetCoreInstrumentation()
+                 .AddHttpClientInstrumentation();
+                
+                if (enableOtlp)
+                {
+                    t.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint!));
+                }
+            })
+            .WithMetrics(m =>
+            {
+                m.AddAspNetCoreInstrumentation()
+                 .AddHttpClientInstrumentation();
+                
+                if (enableOtlp)
+                {
+                    m.AddOtlpExporter(options => options.Endpoint = new Uri(otlpEndpoint!));
+                }
+            });
+
+        if (!enableOtlp)
+        {
+            Log.Information("OpenTelemetry OTLP exporter is disabled. Set 'OpenTelemetry:OtlpEndpoint' in configuration to enable.");
+        }
 
         return builder;
     }

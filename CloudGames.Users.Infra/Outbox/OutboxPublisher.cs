@@ -23,7 +23,18 @@ public class OutboxPublisher : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await _queue.CreateIfNotExistsAsync(cancellationToken: stoppingToken);
+        try
+        {
+            _logger.LogInformation("OutboxPublisher starting - attempting to connect to Azure Storage Queue");
+            await _queue.CreateIfNotExistsAsync(cancellationToken: stoppingToken);
+            _logger.LogInformation("OutboxPublisher successfully connected to Azure Storage Queue");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "OutboxPublisher failed to connect to Azure Storage Queue. Ensure Azurite is running or Storage connection string is valid. Publisher will continue but messages will accumulate in the outbox.");
+            // Don't crash the application - continue running and retry
+        }
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
