@@ -53,21 +53,43 @@ public class UserCommandHandler
 
         await _eventStore.AppendAsync(new UserRegistered(user.Id, user.Name, user.Email), ct);
 
-        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString());
+        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString(), user.IsActive, user.CreatedAt, user.UpdatedAt);
     }
 
     public async Task<UserDto> Handle(UpdateUserCommand command, CancellationToken ct)
     {
+        // Security check: regular users can only update their own record
+        if (command.CurrentUserRole != "Administrator" && command.CurrentUserId != command.Id)
+        {
+            throw new UnauthorizedAccessException("You can only update your own profile");
+        }
+
         var user = await _users.GetByIdAsync(command.Id, ct) ?? throw new KeyNotFoundException("User not found");
+        
+        // Always allow name and email updates
         user.Name = command.Dto.Name;
         user.Email = command.Dto.Email;
+
+        // Role and IsActive can only be updated by Administrators
+        if (command.CurrentUserRole == "Administrator")
+        {
+            if (!string.IsNullOrEmpty(command.Dto.Role) && Enum.TryParse<UserRole>(command.Dto.Role, out var role))
+            {
+                user.Role = role;
+            }
+            if (command.Dto.IsActive.HasValue)
+            {
+                user.IsActive = command.Dto.IsActive.Value;
+            }
+        }
+
         user.UpdatedAt = DateTime.UtcNow;
         _users.Update(user);
         await _uow.SaveChangesAsync(ct);
 
         await _eventStore.AppendAsync(new UserUpdated(user.Id, user.Name, user.Email), ct);
 
-        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString());
+        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString(), user.IsActive, user.CreatedAt, user.UpdatedAt);
     }
 
     public async Task<LoginResponseDto> Handle(LoginDto dto, CancellationToken ct)
@@ -77,7 +99,7 @@ public class UserCommandHandler
             throw new UnauthorizedAccessException("Invalid credentials");
 
         var token = _tokenService.GenerateToken(user);
-        return new LoginResponseDto(token, new UserDto(user.Id, user.Name, user.Email, user.Role.ToString()));
+        return new LoginResponseDto(token, new UserDto(user.Id, user.Name, user.Email, user.Role.ToString(), user.IsActive, user.CreatedAt, user.UpdatedAt));
     }
 }
 
@@ -89,7 +111,13 @@ public class UserQueryHandler
     public async Task<UserDto> Handle(GetUserByIdQuery query, CancellationToken ct)
     {
         var user = await _users.GetByIdAsync(query.Id, ct) ?? throw new KeyNotFoundException("User not found");
-        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString());
+        return new UserDto(user.Id, user.Name, user.Email, user.Role.ToString(), user.IsActive, user.CreatedAt, user.UpdatedAt);
+    }
+
+    public async Task<List<UserDto>> Handle(GetAllUsersQuery query, CancellationToken ct)
+    {
+        var users = await _users.GetAllAsync(ct);
+        return users.Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role.ToString(), u.IsActive, u.CreatedAt, u.UpdatedAt)).ToList();
     }
 }
 

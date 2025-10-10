@@ -16,6 +16,9 @@ public class UserRepository : IUserRepository
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
         => await _db.Users.FirstOrDefaultAsync(u => u.Email == email && u.IsActive, cancellationToken);
 
+    public async Task<List<User>> GetAllAsync(CancellationToken cancellationToken)
+        => await _db.Users.ToListAsync(cancellationToken);
+
     public async Task AddAsync(User user, CancellationToken cancellationToken)
         => await _db.Users.AddAsync(user, cancellationToken);
 

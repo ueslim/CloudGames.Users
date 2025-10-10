@@ -17,6 +17,22 @@ public class UsersController : ControllerBase
     public UsersController(UserQueryHandler queries) { _queries = queries; }
 
     /// <summary>
+    /// Get all users (Administrator only)
+    /// </summary>
+    /// <param name="ct">Cancellation token</param>
+    /// <returns>List of all users</returns>
+    /// <response code="200">Users retrieved successfully</response>
+    /// <response code="401">Unauthorized - JWT token required</response>
+    /// <response code="403">Forbidden - Administrator role required</response>
+    [Authorize(Roles = "Administrator")]
+    [HttpGet]
+    public async Task<IActionResult> GetAll(CancellationToken ct)
+    {
+        var users = await _queries.Handle(new GetAllUsersQuery(), ct);
+        return Ok(users);
+    }
+
+    /// <summary>
     /// Get user information by ID
     /// </summary>
     /// <param name="id">User ID</param>
