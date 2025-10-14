@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 	<PlatformTarget>AnyCPU</PlatformTarget>
+    <UserSecretsId>cloudgames-users-web-secrets</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
