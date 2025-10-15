@@ -95,8 +95,14 @@ public class UserCommandHandler
     public async Task<LoginResponseDto> Handle(LoginDto dto, CancellationToken ct)
     {
         var user = await _users.GetByEmailAsync(dto.Email, ct);
-        if (user == null || !_passwordHasher.Verify(dto.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid credentials");
+        
+        // Check if user exists first
+        if (user == null)
+            throw new KeyNotFoundException("User not registered");
+        
+        // Check password for existing user
+        if (!_passwordHasher.Verify(dto.Password, user.PasswordHash))
+            throw new UnauthorizedAccessException("Invalid password");
 
         var token = _tokenService.GenerateToken(user);
         return new LoginResponseDto(token, new UserDto(user.Id, user.Name, user.Email, user.Role.ToString(), user.IsActive, user.CreatedAt, user.UpdatedAt));

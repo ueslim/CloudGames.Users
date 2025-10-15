@@ -3,6 +3,8 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
+using System;
+using System.Collections.Generic;
 
 public class UserTests
 {
@@ -43,5 +45,44 @@ public class UserTests
         var resp = await service.LoginAsync(new LoginDto("t@t.com","P@ssw0rd!"));
 
         resp.Token.Should().Be("dummy.jwt.token");
+    }
+
+    [Fact]
+    public async Task Login_UnregisteredUser_ThrowsKeyNotFoundException()
+    {
+        var options = new DbContextOptionsBuilder<UsersDbContext>()
+            .UseInMemoryDatabase("users-tests-unregistered")
+            .Options;
+        await using var db = new UsersDbContext(options);
+        
+        var token = new Mock<ITokenService>();
+        var queue = new Mock<Azure.Storage.Queues.QueueClient>(MockBehavior.Loose, new object[] { "UseDevelopmentStorage=true", "users-events" });
+        var service = new UserService(db, token.Object, queue.Object);
+
+        var act = async () => await service.LoginAsync(new LoginDto("nonexistent@mail.com", "anypassword"));
+        
+        await act.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("User not registered");
+    }
+
+    [Fact]
+    public async Task Login_WrongPassword_ThrowsUnauthorizedAccessException()
+    {
+        var options = new DbContextOptionsBuilder<UsersDbContext>()
+            .UseInMemoryDatabase("users-tests-wrong-password")
+            .Options;
+        await using var db = new UsersDbContext(options);
+        var user = new User { Id = Guid.NewGuid(), Name = "Test", Email = "t@t.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword("CorrectPassword"), IsActive = true };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        var token = new Mock<ITokenService>();
+        var queue = new Mock<Azure.Storage.Queues.QueueClient>(MockBehavior.Loose, new object[] { "UseDevelopmentStorage=true", "users-events" });
+        var service = new UserService(db, token.Object, queue.Object);
+
+        var act = async () => await service.LoginAsync(new LoginDto("t@t.com", "WrongPassword"));
+        
+        await act.Should().ThrowAsync<UnauthorizedAccessException>()
+            .WithMessage("Invalid password");
     }
 }

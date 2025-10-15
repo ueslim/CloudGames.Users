@@ -124,6 +124,41 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/health", () => Results.Ok("ok"));
 
+// Add exception handling middleware
+app.UseExceptionHandler(exceptionHandlerApp =>
+{
+    exceptionHandlerApp.Run(async context =>
+    {
+        var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+        var (statusCode, title) = exception switch
+        {
+            ArgumentNullException or ArgumentException => (400, "Bad Request"),
+            KeyNotFoundException => (404, "Not Found"),
+            InvalidOperationException => (409, "Conflict"),
+            UnauthorizedAccessException => (401, "Unauthorized"),
+            _ => (500, "Internal Server Error")
+        };
+
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
+
+        var problem = new
+        {
+            type = $"https://httpstatus.es/{statusCode}",
+            title,
+            status = statusCode,
+            detail = exception?.Message ?? title,
+            instance = context.Request.Path,
+            timestamp = DateTime.UtcNow
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(problem, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        }));
+    });
+});
+
 app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
@@ -240,8 +275,15 @@ public class UserService : IUserService
     public async Task<LoginResponseDto> LoginAsync(LoginDto dto)
     {
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Email == dto.Email && u.IsActive);
-        if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-            throw new UnauthorizedAccessException("Invalid credentials");
+        
+        // Check if user exists first
+        if (user == null)
+            throw new KeyNotFoundException("User not registered");
+        
+        // Check password for existing user
+        if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+            throw new UnauthorizedAccessException("Invalid password");
+            
         var token = _tokenService.GenerateToken(user);
         return new LoginResponseDto(token, new UserDto(user.Id, user.Name, user.Email, user.Role.ToString()));
     }
